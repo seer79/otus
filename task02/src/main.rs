@@ -1,5 +1,3 @@
-use smarthome::ACSocket;
-
 pub mod smarthome {
 
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -10,28 +8,62 @@ pub mod smarthome {
         OFF,
         ON,
     }
+
     #[derive(Debug, Clone, Copy)]
     pub enum DeviceError {
         ERROR(u32),
     }
 
-    // ECMeter describes device providing electric consumption meter
-    pub trait ECMeter {
-        fn get_consumption(&self) -> f64;
-    }
+    // Describes device ID
+    type DeviceID = u64;
 
-    // Common trait for any IoT device (sensor, power supply)
+    // temperature in fahrenheit
+    type Temperature = f64;
+
+    // trait for any IoT device
     pub trait IoTDevice {
         // unique ID of the device
-        fn id(&self) -> u64;
-        // check if IoT device is functioning properly
+        fn get_id(&self) -> DeviceID;
+        // check if device is functioning properly
         fn test(&self) -> Result<(), DeviceError>;
+    }
+
+    // convert temperature from fahrenheit to celsius
+    pub fn fahrenheit_to_celsius(t: Temperature) -> f64 {
+        (t - 32.0) / 1.8
+    }
+
+    // convert temperature from celsius to fahrenheit
+    pub fn celsius_to_fahrenheit(temp: f64) -> Temperature {
+        (temp * 1.8) + 32.0
+    }
+
+    // trait for devices providing electric consumption meter
+    pub trait ECMeter {
+        fn get_consumption(&self) -> Result<f64, DeviceError>;
+    }
+
+    // trait for devices providing temperature info
+    pub trait TempMeter {
+        fn get_temperature(&self) -> Result<Temperature, DeviceError>;
     }
 
     // ActiveDevice describes device that can be turned on/off
     pub trait ActiveDevice {
         fn switch(&mut self, state: PowerState) -> Result<bool, DeviceError>;
         fn get_state(&self) -> Result<PowerState, DeviceError>;
+    }
+
+    // ACSocket
+    pub struct ACSocket {
+        id: DeviceID,
+        state: IoTBaseState,
+    }
+
+    // Temperature sensor
+    pub struct TempSensor {
+        id: DeviceID,
+        state: IoTBaseState,
     }
 
     // Describes common state of IoT devices (power on/off)
@@ -61,20 +93,10 @@ pub mod smarthome {
         }
     }
 
-    // AC Power socket
-    pub struct ACSocket {
-        id: u64,
-        state: IoTBaseState,
-    }
-
     // Temperature sensor
-    pub struct TempSensor {
-        id: u64,
-        state: IoTBaseState,
-    }
-
     impl TempSensor {
         pub fn new() -> TempSensor {
+            // use time as ID generator
             let id = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("invalid time")
@@ -88,8 +110,34 @@ pub mod smarthome {
         }
     }
 
+    impl ACSocket {
+        pub fn new() -> ACSocket {
+            // use time as ID generator
+            let id = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("invalid time")
+                .as_millis();
+            ACSocket {
+                id: id as u64,
+                state: IoTBaseState {
+                    state: PowerState::OFF,
+                },
+            }
+        }
+    }
+
     impl IoTDevice for ACSocket {
-        fn id(&self) -> u64 {
+        fn get_id(&self) -> DeviceID {
+            self.id
+        }
+
+        fn test(&self) -> Result<(), DeviceError> {
+            Ok(()) // todo: implement real diagnostic
+        }
+    }
+
+    impl IoTDevice for TempSensor {
+        fn get_id(&self) -> DeviceID {
             self.id
         }
 
@@ -99,8 +147,16 @@ pub mod smarthome {
     }
 
     impl ECMeter for ACSocket {
-        fn get_consumption(&self) -> f64 {
-            todo!("compute insance consumption")
+        fn get_consumption(&self) -> Result<f64, DeviceError> {
+            // TODO: compute actual consumption
+            Ok(1.2)
+        }
+    }
+
+    impl TempMeter for TempSensor {
+        fn get_temperature(&self) -> Result<Temperature, DeviceError> {
+            // TODO: compute actual temperature
+            Ok(celsius_to_fahrenheit(22.0))
         }
     }
 
@@ -118,8 +174,10 @@ pub mod smarthome {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
-                "id = {:?}, power state = {:?}",
-                self.id, self.state.state
+                "AC socket: id = {:?}, power state = {:?}, electric consumption = {:?}",
+                self.id,
+                self.state.state,
+                self.get_consumption().unwrap()
             )
         }
     }
@@ -128,10 +186,46 @@ pub mod smarthome {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
-                "id = {:?}, power state = {:?}",
-                self.id, self.state.state
+                "Temp sensor: id = {:?}, power state = {:?}, temp = {:?}",
+                self.id,
+                self.state.state,
+                self.get_temperature().unwrap()
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::smarthome::{self, ECMeter, IoTDevice, TempMeter};
+
+    #[test]
+    fn test_creation() {
+        let tsensor = smarthome::TempSensor::new();
+        let socket = smarthome::ACSocket::new();
+        assert!(socket.get_id() != tsensor.get_id());
+    }
+
+    #[test]
+    fn test_temp() {
+        let tsensor = smarthome::TempSensor::new();
+        assert!(tsensor.get_temperature().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_consumption() {
+        let socket = smarthome::ACSocket::new();
+        assert!(socket.get_consumption().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_to_string() {
+        assert!(smarthome::ACSocket::new()
+            .to_string()
+            .contains("electric consumption = 1.2"));
+        assert!(smarthome::TempSensor::new()
+            .to_string()
+            .contains("temp = 71.6"));
     }
 }
 
