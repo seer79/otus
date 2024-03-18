@@ -1,6 +1,12 @@
 pub mod smarthome {
 
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    // Generate new unique (run-time only) id
+    fn gen_id() -> u64 {
+        static COUNTER: AtomicU64 = AtomicU64::new(1);
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    }
 
     #[derive(Debug, Clone, Copy, Default)]
     pub enum PowerState {
@@ -96,13 +102,8 @@ pub mod smarthome {
     // Temperature sensor
     impl TempSensor {
         pub fn new() -> TempSensor {
-            // use time as ID generator
-            let id = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("invalid time")
-                .as_millis();
             TempSensor {
-                id: id as u64,
+                id: gen_id(),
                 state: IoTBaseState {
                     state: PowerState::OFF,
                 },
@@ -112,13 +113,8 @@ pub mod smarthome {
 
     impl ACSocket {
         pub fn new() -> ACSocket {
-            // use time as ID generator
-            let id = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("invalid time")
-                .as_millis();
             ACSocket {
-                id: id as u64,
+                id: gen_id(),
                 state: IoTBaseState {
                     state: PowerState::OFF,
                 },
@@ -203,6 +199,7 @@ mod tests {
     fn test_creation() {
         let tsensor = smarthome::TempSensor::new();
         let socket = smarthome::ACSocket::new();
+        println!("{:?} {:?}", socket.get_id(), tsensor.get_id());
         assert!(socket.get_id() != tsensor.get_id());
     }
 
