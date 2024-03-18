@@ -2,7 +2,7 @@ pub mod smarthome {
 
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    // Generate new unique (run-time only) id
+    // simple run-time only unique id generator
     fn gen_id() -> u64 {
         static COUNTER: AtomicU64 = AtomicU64::new(1);
         COUNTER.fetch_add(1, Ordering::Relaxed)
@@ -193,13 +193,12 @@ pub mod smarthome {
 
 #[cfg(test)]
 mod tests {
-    use crate::smarthome::{self, ECMeter, IoTDevice, TempMeter};
+    use crate::smarthome::{self, ActiveDevice, ECMeter, IoTDevice, TempMeter};
 
     #[test]
     fn test_creation() {
         let tsensor = smarthome::TempSensor::new();
         let socket = smarthome::ACSocket::new();
-        println!("{:?} {:?}", socket.get_id(), tsensor.get_id());
         assert!(socket.get_id() != tsensor.get_id());
     }
 
@@ -223,6 +222,34 @@ mod tests {
         assert!(smarthome::TempSensor::new()
             .to_string()
             .contains("temp = 71.6"));
+    }
+
+    #[test]
+    fn test_switch() {
+        let mut socket = smarthome::ACSocket::new();
+        match socket.get_state() {
+            Ok(smarthome::PowerState::OFF) => assert!(true),
+            Ok(_) => assert!(false, "invalid state"),
+            Err(_) => assert!(false, "Invalid state"),
+        }
+        match socket.switch(smarthome::PowerState::ON) {
+            Ok(_) => assert!(true),
+            Err(_) => assert!(false, "cannot switch state"),
+        }
+        match socket.get_state() {
+            Ok(smarthome::PowerState::ON) => assert!(true),
+            Ok(_) => assert!(false, "invalid state"),
+            Err(_) => assert!(false, "Invalid state"),
+        }
+        match socket.switch(smarthome::PowerState::OFF) {
+            Ok(_) => assert!(true),
+            Err(_) => assert!(false, "cannot switch state"),
+        }
+        match socket.get_state() {
+            Ok(smarthome::PowerState::OFF) => assert!(true),
+            Ok(_) => assert!(false, "invalid state"),
+            Err(_) => assert!(false, "Invalid state"),
+        }
     }
 }
 
