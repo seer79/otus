@@ -32,6 +32,8 @@ pub mod smarthome {
         fn get_id(&self) -> DeviceID;
         // check if device is functioning properly
         fn test(&self) -> Result<(), DeviceError>;
+        // human-readable description of the device
+        fn describe(&self) -> std::string::String;
     }
 
     // convert temperature from fahrenheit to celsius
@@ -61,21 +63,21 @@ pub mod smarthome {
     }
 
     // ACSocket
-    #[derive(Default)]
+    #[derive(Default, Debug)]
     pub struct ACSocket {
         id: DeviceID,
         state: IoTBaseState,
     }
 
     // Temperature sensor
-    #[derive(Default)]
+    #[derive(Default, Debug)]
     pub struct TempSensor {
         id: DeviceID,
         state: IoTBaseState,
     }
 
     // Describes common state of IoT devices (power on/off)
-    #[derive(Default)]
+    #[derive(Default, Debug)]
     struct IoTBaseState {
         state: PowerState,
     }
@@ -132,6 +134,10 @@ pub mod smarthome {
         fn test(&self) -> Result<(), DeviceError> {
             Ok(()) // todo: implement real diagnostic
         }
+
+        fn describe(&self) -> std::string::String {
+            format!("AC Socket {:?}", self.id)
+        }
     }
 
     impl IoTDevice for TempSensor {
@@ -141,6 +147,10 @@ pub mod smarthome {
 
         fn test(&self) -> Result<(), DeviceError> {
             Ok(()) // todo: implement real diagnostic
+        }
+
+        fn describe(&self) -> std::string::String {
+            format!("Temp sensor {:?}", self.id)
         }
     }
 
@@ -189,6 +199,56 @@ pub mod smarthome {
                 self.state.state,
                 self.get_temperature().unwrap()
             )
+        }
+    }
+    #[derive(Debug)]
+    pub struct Room {
+        ac_sockets: std::vec::Vec<ACSocket>,
+        t_sensors: std::vec::Vec<TempSensor>,
+    }
+
+    impl Room {}
+
+    #[derive(Default)]
+    pub struct House {
+        name: std::string::String,
+        rooms: std::vec::Vec<Room>,
+    }
+
+    impl House {
+        pub fn get_name(&self) -> std::string::String {
+            self.name.clone()
+        }
+        pub fn get_room_count(&self) -> usize {
+            self.rooms.len()
+        }
+        pub fn builder() -> HouseBuilder {
+            HouseBuilder::default()
+        }
+    }
+
+    #[derive(Default)]
+    pub struct HouseBuilder {
+        house: House,
+    }
+
+    impl HouseBuilder {
+        pub fn new(name: std::string::String) -> HouseBuilder {
+            HouseBuilder {
+                house: House {
+                    name: name.clone(),
+                    rooms: vec![],
+                },
+            }
+        }
+
+        pub fn add_room(&mut self, r: Room) -> &mut HouseBuilder {
+            self.house.rooms.push(r);
+            self
+        }
+
+        pub fn build(self) -> House {
+            self.house
         }
     }
 }
