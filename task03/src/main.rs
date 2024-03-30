@@ -1,6 +1,10 @@
 pub mod smarthome {
 
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::{
+        collections::HashSet,
+        default,
+        sync::atomic::{AtomicU64, Ordering},
+    };
 
     // simple run-time only unique id generator
     fn gen_id() -> u64 {
@@ -63,21 +67,21 @@ pub mod smarthome {
     }
 
     // ACSocket
-    #[derive(Default, Debug)]
+    #[derive(Default, Debug, Clone)]
     pub struct ACSocket {
         id: DeviceID,
         state: IoTBaseState,
     }
 
     // Temperature sensor
-    #[derive(Default, Debug)]
+    #[derive(Default, Debug, Clone)]
     pub struct TempSensor {
         id: DeviceID,
         state: IoTBaseState,
     }
 
     // Describes common state of IoT devices (power on/off)
-    #[derive(Default, Debug)]
+    #[derive(Default, Debug, Clone)]
     struct IoTBaseState {
         state: PowerState,
     }
@@ -201,15 +205,82 @@ pub mod smarthome {
             )
         }
     }
-    #[derive(Debug)]
+
+    // Device ref represents short reference to IoT device in smarthome
+    #[derive(Debug, Default, Clone)]
+    pub struct DeviceRef(DeviceID, std::string::String);
+
+    #[derive(Debug, Default, Clone)]
     pub struct Room {
+        name: std::string::String,
         ac_sockets: std::vec::Vec<ACSocket>,
         t_sensors: std::vec::Vec<TempSensor>,
     }
 
-    impl Room {}
+    impl Room {
+        pub fn builder() -> RoomBuilder {
+            RoomBuilder::default()
+        }
 
-    #[derive(Default)]
+        pub fn get_name(&self) -> std::string::String {
+            self.name.clone()
+        }
+
+        pub fn get_devices(&self) -> Vec<DeviceRef> {
+            let mut result = vec![];
+            self.ac_sockets
+                .iter()
+                .for_each(|s| result.push(DeviceRef(s.id, self.name.clone())));
+            self.t_sensors
+                .iter()
+                .for_each(|t| result.push(DeviceRef(t.id, self.name.clone())));
+            result
+        }
+    }
+
+    impl std::fmt::Display for Room {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "Room name = {:?}, temp sensor count = {:?}, ac socket count = {:?}",
+                self.name,
+                self.t_sensors.len(),
+                self.ac_sockets.len()
+            )
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct RoomBuilder {
+        room: Room,
+    }
+
+    impl RoomBuilder {
+        pub fn new(name: std::string::String) -> RoomBuilder {
+            RoomBuilder {
+                room: Room {
+                    name: name.clone(),
+                    ac_sockets: vec![],
+                    t_sensors: vec![],
+                },
+            }
+        }
+        pub fn add_tsensor(mut self, sensor: TempSensor) -> Self {
+            self.room.t_sensors.push(sensor);
+            self
+        }
+
+        pub fn add_ac_socket(mut self, socket: ACSocket) -> Self {
+            self.room.ac_sockets.push(socket);
+            self
+        }
+
+        pub fn build(self) -> Room {
+            self.room
+        }
+    }
+
+    #[derive(Debug, Default, Clone)]
     pub struct House {
         name: std::string::String,
         rooms: std::vec::Vec<Room>,
@@ -219,9 +290,11 @@ pub mod smarthome {
         pub fn get_name(&self) -> std::string::String {
             self.name.clone()
         }
-        pub fn get_room_count(&self) -> usize {
-            self.rooms.len()
+
+        pub fn get_rooms(&self) -> &Vec<Room> {
+            &self.rooms
         }
+
         pub fn builder() -> HouseBuilder {
             HouseBuilder::default()
         }
@@ -242,20 +315,51 @@ pub mod smarthome {
             }
         }
 
-        pub fn add_room(&mut self, r: Room) -> &mut HouseBuilder {
+        pub fn add_room(mut self, r: Room) -> Self {
             self.house.rooms.push(r);
             self
         }
 
-        pub fn build(self) -> House {
-            self.house
+        pub fn build(self) -> Result<House, std::string::String> {
+            let mut names = HashSet::new();
+            let mut conflicts = Vec::default();
+            self.house.rooms.iter().for_each(|r| {
+                if !names.insert(r.name.clone()) {
+                    conflicts.push(r.name.clone())
+                }
+            });
+            if conflicts.len() > 0 {
+                return Err(format!(
+                    "Found rooms with conflicting names {:?}",
+                    conflicts
+                ));
+            }
+            Ok(self.house)
         }
     }
 }
 
 fn main() {
-    let socket = smarthome::TempSensor::new();
-    println!("{}", socket);
+    let jack_home = smarthome::HouseBuilder::new(String::from("test"))
+        .add_room(
+            smarthome::RoomBuilder::new(String::from("Room A"))
+                .add_ac_socket(smarthome::ACSocket::new())
+                .add_ac_socket(smarthome::ACSocket::new())
+                .add_tsensor(smarthome::TempSensor::new())
+                .build(),
+        )
+        .add_room(
+            smarthome::RoomBuilder::new(String::from("Room B"))
+                .add_ac_socket(smarthome::ACSocket::new())
+                .add_tsensor(smarthome::TempSensor::new())
+                .add_tsensor(smarthome::TempSensor::new())
+                .build(),
+        )
+        .build();
+    match jack_home {
+        Ok(home) => println!("{:?}", home),
+        Err(err) => println!("{}", err),
+    }
 }
 
 #[cfg(test)]
