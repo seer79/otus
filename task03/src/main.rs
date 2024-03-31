@@ -597,6 +597,3 @@ fn main() {
         Err(err) => println!("Cannot build house {}", err),
     }
 }
-
-#[cfg(test)]
-mod tests {}
