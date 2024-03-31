@@ -245,7 +245,7 @@ pub mod smarthome {
             self.name.clone()
         }
 
-        pub fn get_devices(&self) -> Vec<DeviceRef> {
+        pub fn get_device_refs(&self) -> Vec<DeviceRef> {
             let mut result = vec![];
             self.ac_sockets
                 .iter()
@@ -253,6 +253,17 @@ pub mod smarthome {
             self.t_sensors
                 .iter()
                 .for_each(|t| result.push(DeviceRef(t.id, self.name.clone())));
+            result
+        }
+
+        pub fn get_device_descriptions(&self) -> Vec<std::string::String> {
+            let mut result = vec![];
+            self.ac_sockets.iter().for_each(|ac| {
+                result.push(format!("ac socket {:?}", ac.id));
+            });
+            self.t_sensors.iter().for_each(|ts| {
+                result.push(format!("temp sensor {:?}", ts.id));
+            });
             result
         }
 
@@ -581,6 +592,17 @@ fn main() {
             // Turn power on
             let mut owned_home = home.to_owned();
             owned_home.turn_on();
+
+            // Room list
+            println!("------------- HOUSE ---------------");
+            owned_home.get_rooms().iter().for_each(|r| {
+                println!("Room {:?}", r.get_name());
+                r.get_device_descriptions()
+                    .iter()
+                    .for_each(|d| println!("    {:?}", d))
+            });
+
+            println!("------------- REPORTS ---------------");
 
             // Generate reports
             let report1 = owned_home.create_report(&owning_reporter);
