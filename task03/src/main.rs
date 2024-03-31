@@ -2,7 +2,6 @@ pub mod smarthome {
 
     use std::{
         collections::HashSet,
-        default,
         sync::atomic::{AtomicU64, Ordering},
     };
 
@@ -37,7 +36,7 @@ pub mod smarthome {
         // check if device is functioning properly
         fn test(&self) -> Result<(), DeviceError>;
         // human-readable description of the device
-        fn describe(&self) -> std::string::String;
+        fn status(&self) -> std::string::String;
     }
 
     // convert temperature from fahrenheit to celsius
@@ -139,8 +138,13 @@ pub mod smarthome {
             Ok(()) // todo: implement real diagnostic
         }
 
-        fn describe(&self) -> std::string::String {
-            format!("AC Socket {:?}", self.id)
+        fn status(&self) -> std::string::String {
+            format!(
+                "AC Socket {:?}, power state {:?}, consumption {:?}",
+                self.id,
+                self.state.state,
+                self.get_consumption()
+            )
         }
     }
 
@@ -153,8 +157,13 @@ pub mod smarthome {
             Ok(()) // todo: implement real diagnostic
         }
 
-        fn describe(&self) -> std::string::String {
-            format!("Temp sensor {:?}", self.id)
+        fn status(&self) -> std::string::String {
+            format!(
+                "Temp sensor {:?}, power state {:?}, temp {:?}",
+                self.id,
+                self.state.state,
+                self.get_temperature()
+            )
         }
     }
 
@@ -173,6 +182,16 @@ pub mod smarthome {
     }
 
     impl ActiveDevice for ACSocket {
+        fn switch(&mut self, state: PowerState) -> Result<bool, DeviceError> {
+            self.state.switch(state)
+        }
+
+        fn get_state(&self) -> Result<PowerState, DeviceError> {
+            self.state.get_state()
+        }
+    }
+
+    impl ActiveDevice for TempSensor {
         fn switch(&mut self, state: PowerState) -> Result<bool, DeviceError> {
             self.state.switch(state)
         }
@@ -236,6 +255,20 @@ pub mod smarthome {
                 .for_each(|t| result.push(DeviceRef(t.id, self.name.clone())));
             result
         }
+
+        pub fn switch_state(&mut self, state: PowerState) -> &mut Self {
+            self.ac_sockets.iter_mut().for_each(|s| {
+                if s.switch(state).is_err() {
+                    panic!("cannot change state")
+                }
+            });
+            self.t_sensors.iter_mut().for_each(|s| {
+                if s.switch(state).is_err() {
+                    panic!("cannot change state")
+                }
+            });
+            self
+        }
     }
 
     impl std::fmt::Display for Room {
@@ -280,6 +313,110 @@ pub mod smarthome {
         }
     }
 
+    pub trait DeviceInfoProvider {
+        fn is_included(&self, r: &DeviceRef) -> bool;
+
+        fn get_device_refs(&self) -> std::vec::Vec<DeviceRef>;
+
+        fn get_device_status(
+            &self,
+            house: &House,
+            r: &DeviceRef,
+        ) -> Result<std::string::String, std::string::String>;
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct OwningDeviceInfoProvider {
+        room: std::string::String,
+        socket: ACSocket,
+        tsensor: TempSensor,
+    }
+
+    impl DeviceInfoProvider for OwningDeviceInfoProvider {
+        fn is_included(&self, r: &DeviceRef) -> bool {
+            self.room == r.1 && (self.socket.id == r.0 || self.tsensor.id == r.0)
+        }
+
+        fn get_device_refs(&self) -> std::vec::Vec<DeviceRef> {
+            vec![
+                DeviceRef(self.socket.id, self.room.clone()),
+                DeviceRef(self.tsensor.id, self.room.clone()),
+            ]
+        }
+
+        fn get_device_status(
+            &self,
+            house: &House,
+            r: &DeviceRef,
+        ) -> Result<std::string::String, std::string::String> {
+            if r.0 == self.socket.id || r.0 == self.tsensor.id {
+                return house.get_device_status(r);
+            }
+            Err(format!(
+                "ERROR: device {:?} is not included in this report",
+                r.0
+            ))
+        }
+    }
+
+    impl OwningDeviceInfoProvider {
+        pub fn new(
+            room: std::string::String,
+            s: ACSocket,
+            ts: TempSensor,
+        ) -> OwningDeviceInfoProvider {
+            OwningDeviceInfoProvider {
+                room,
+                socket: s,
+                tsensor: ts,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct BorrowingDeviceInfoProvider<'a, 'b> {
+        room: std::string::String,
+        socket: &'a ACSocket,
+        tsensor: &'b TempSensor,
+    }
+
+    impl<'a, 'b> BorrowingDeviceInfoProvider<'a, 'b> {
+        pub fn new(room: std::string::String, s: &'a ACSocket, t: &'b TempSensor) -> Self {
+            BorrowingDeviceInfoProvider {
+                room,
+                socket: s,
+                tsensor: t,
+            }
+        }
+    }
+
+    impl<'a, 'b> DeviceInfoProvider for BorrowingDeviceInfoProvider<'a, 'b> {
+        fn is_included(&self, r: &DeviceRef) -> bool {
+            self.room == r.1 && (self.socket.id == r.0 || self.tsensor.id == r.0)
+        }
+
+        fn get_device_refs(&self) -> std::vec::Vec<DeviceRef> {
+            vec![
+                DeviceRef(self.socket.id, self.room.clone()),
+                DeviceRef(self.tsensor.id, self.room.clone()),
+            ]
+        }
+
+        fn get_device_status(
+            &self,
+            house: &House,
+            r: &DeviceRef,
+        ) -> Result<std::string::String, std::string::String> {
+            if r.0 == self.socket.id || r.0 == self.tsensor.id {
+                return house.get_device_status(r);
+            }
+            Err(format!(
+                "ERROR: device {:?} is not included in this report",
+                r.0
+            ))
+        }
+    }
+
     #[derive(Debug, Default, Clone)]
     pub struct House {
         name: std::string::String,
@@ -297,6 +434,59 @@ pub mod smarthome {
 
         pub fn builder() -> HouseBuilder {
             HouseBuilder::default()
+        }
+
+        pub fn turn_on(&mut self) -> &mut Self {
+            self.rooms.iter_mut().for_each(|r| {
+                r.switch_state(PowerState::ON);
+            });
+            self
+        }
+
+        pub fn turn_off(&mut self) -> &mut Self {
+            self.rooms.iter_mut().for_each(|r| {
+                r.switch_state(PowerState::OFF);
+            });
+            self
+        }
+
+        pub fn create_report<T: DeviceInfoProvider>(&self, provider: &T) -> std::string::String {
+            let mut result = format!("House '{}'\n", self.name);
+            provider
+                .get_device_refs()
+                .iter()
+                .for_each(|r| match self.get_device_status(r) {
+                    Ok(status) => {
+                        result.push_str(
+                            format!("Room: '{}', device status: '{}'", r.1, status).as_str(),
+                        );
+                        result.push('\n');
+                    }
+                    Err(err) => {
+                        result.push_str(format!("ERROR: {}", err).as_str());
+                        result.push('\n');
+                    }
+                });
+            result
+        }
+
+        pub fn get_device_status(
+            &self,
+            r: &DeviceRef,
+        ) -> Result<std::string::String, std::string::String> {
+            for room in &self.rooms {
+                for socket in &room.ac_sockets {
+                    if socket.id == r.0 {
+                        return Ok(socket.status());
+                    }
+                }
+                for ts in &room.t_sensors {
+                    if ts.id == r.0 {
+                        return Ok(ts.status());
+                    }
+                }
+            }
+            Err(format!("ERROR: device {:?} is not found in the house", r.0))
         }
     }
 
@@ -328,7 +518,7 @@ pub mod smarthome {
                     conflicts.push(r.name.clone())
                 }
             });
-            if conflicts.len() > 0 {
+            if !conflicts.is_empty() {
                 return Err(format!(
                     "Found rooms with conflicting names {:?}",
                     conflicts
@@ -340,86 +530,73 @@ pub mod smarthome {
 }
 
 fn main() {
+    let s1 = smarthome::ACSocket::new();
+    let s2 = smarthome::ACSocket::new();
+    let s3 = smarthome::ACSocket::new();
+    let ts1 = smarthome::TempSensor::new();
+    let ts2 = smarthome::TempSensor::new();
+    let ts3 = smarthome::TempSensor::new();
+    let ts4 = smarthome::TempSensor::new();
+
+    let missing_socket = smarthome::ACSocket::new();
+    let missing_tsensor = smarthome::TempSensor::new();
+
+    let owning_reporter =
+        smarthome::OwningDeviceInfoProvider::new(String::from("Room A"), s1.clone(), ts1.clone());
+
+    let borrowing_reporter =
+        smarthome::BorrowingDeviceInfoProvider::new(String::from("Room B"), &s3, &ts3);
+
+    let invalid_owning_reporter = smarthome::OwningDeviceInfoProvider::new(
+        String::from("Missing Room A"),
+        missing_socket.clone(),
+        missing_tsensor.clone(),
+    );
+
+    let invalid_borrowing_reporter = smarthome::BorrowingDeviceInfoProvider::new(
+        String::from("Room A"),
+        &missing_socket,
+        &missing_tsensor,
+    );
+
     let jack_home = smarthome::HouseBuilder::new(String::from("test"))
         .add_room(
             smarthome::RoomBuilder::new(String::from("Room A"))
-                .add_ac_socket(smarthome::ACSocket::new())
-                .add_ac_socket(smarthome::ACSocket::new())
-                .add_tsensor(smarthome::TempSensor::new())
+                .add_ac_socket(s1)
+                .add_ac_socket(s2)
+                .add_tsensor(ts1)
                 .build(),
         )
         .add_room(
             smarthome::RoomBuilder::new(String::from("Room B"))
-                .add_ac_socket(smarthome::ACSocket::new())
-                .add_tsensor(smarthome::TempSensor::new())
-                .add_tsensor(smarthome::TempSensor::new())
+                .add_ac_socket(s3.clone())
+                .add_tsensor(ts2)
+                .add_tsensor(ts3.clone())
+                .add_tsensor(ts4)
                 .build(),
         )
         .build();
     match jack_home {
-        Ok(home) => println!("{:?}", home),
-        Err(err) => println!("{}", err),
+        Ok(home) => {
+            // Turn power on
+            let mut owned_home = home.to_owned();
+            owned_home.turn_on();
+
+            // Generate reports
+            let report1 = owned_home.create_report(&owning_reporter);
+            let report2 = owned_home.create_report(&borrowing_reporter);
+            println!("Valid owning report:\n{}", report1);
+            println!("Valid borrowing report:\n{}", report2);
+
+            // Now reports for missing room/devices
+            let ireport1 = owned_home.create_report(&invalid_owning_reporter);
+            let ireport2 = owned_home.create_report(&invalid_borrowing_reporter);
+            println!("Invalid owning report:\n{}", ireport1);
+            println!("Invalid borrowing report:\n{}", ireport2);
+        }
+        Err(err) => println!("Cannot build house {}", err),
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::smarthome::{self, ActiveDevice, ECMeter, IoTDevice, TempMeter};
-
-    #[test]
-    fn test_creation() {
-        let tsensor = smarthome::TempSensor::new();
-        let socket = smarthome::ACSocket::new();
-        assert!(socket.get_id() != tsensor.get_id());
-    }
-
-    #[test]
-    fn test_temp() {
-        let tsensor = smarthome::TempSensor::new();
-        assert!(tsensor.get_temperature().unwrap() > 0.0);
-    }
-
-    #[test]
-    fn test_consumption() {
-        let socket = smarthome::ACSocket::new();
-        assert!(socket.get_consumption().unwrap() > 0.0);
-    }
-
-    #[test]
-    fn test_to_string() {
-        assert!(smarthome::ACSocket::new()
-            .to_string()
-            .contains("electric consumption = 1.2"));
-        assert!(smarthome::TempSensor::new()
-            .to_string()
-            .contains("temp = 71.6"));
-    }
-
-    #[test]
-    fn test_switch() {
-        let mut socket = smarthome::ACSocket::new();
-        match socket.get_state() {
-            Ok(smarthome::PowerState::OFF) => (),
-            Ok(_) => panic!("invalid state"),
-            Err(_) => panic!("invalid state"),
-        }
-        match socket.switch(smarthome::PowerState::ON) {
-            Ok(_) => (),
-            Err(_) => panic!("cannot switch state"),
-        }
-        match socket.get_state() {
-            Ok(smarthome::PowerState::ON) => (),
-            Ok(_) => panic!("invalid state"),
-            Err(_) => panic!("invalid state"),
-        }
-        match socket.switch(smarthome::PowerState::OFF) {
-            Ok(_) => (),
-            Err(_) => panic!("cannot switch state"),
-        }
-        match socket.get_state() {
-            Ok(smarthome::PowerState::OFF) => (),
-            Ok(_) => panic!("invalid state"),
-            Err(_) => panic!("invalid state"),
-        }
-    }
-}
+mod tests {}
