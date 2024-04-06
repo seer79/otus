@@ -1,6 +1,11 @@
 //! Physical module implements physical models for IoT devices
 
-use crate::logical::*;
+use std::error::Error;
+
+use crate::{
+    logical::{self, *},
+    logical_device::Device,
+};
 
 /// PhysicalDevice defines common interface for physical IoT devices
 pub trait PhysicalDevice {

@@ -27,14 +27,14 @@ impl ACSocket {
             PowerState::OFF => 0.0,
             PowerState::ON => {
                 let mut rng = rand::thread_rng();
-                rng.gen::<f32>() * 100.0 // TODO: find better way
+                rng.gen_range(0.1..100.0)
             }
         }
     }
 
     fn get_status(&self) -> String {
         format!(
-            "AC Socket. Serial = {}, manufactor = {}, power state = {:?}, consumption = {}",
+            "AC Socket: serial = {}, manufactor = {}, power state = {:?}, consumption = {}",
             self.serial,
             self.manufactor,
             self.state,
@@ -86,13 +86,14 @@ mod tests {
     #[test]
     fn test_acsocket() {
         let mut socket = ACSocket::new(String::from("124"), String::from("IBM"));
-        assert!(socket.get_consumption() > 0.0);
+        assert!(socket.get_consumption() == 0.0);
         assert!({
             match socket.set_power_state(PowerState::ON) {
                 Ok(PowerState::ON) => true,
                 _ => false,
             }
         });
+        assert!(socket.get_consumption() > 0.0);
         assert!({
             match socket.set_power_state(PowerState::OFF) {
                 Ok(PowerState::OFF) => true,

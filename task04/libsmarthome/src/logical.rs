@@ -13,6 +13,8 @@ pub enum PowerState {
 /// ErrorCode describes error codes of IoT device
 #[derive(Debug, Clone)]
 pub enum ErrorCode {
+    /// Operation is not supported by the target
+    UnsupportedOperation,
     /// Device is offline
     Off,
     /// No physical device is connected

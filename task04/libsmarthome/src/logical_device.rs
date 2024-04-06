@@ -9,10 +9,10 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn new(desc: String) -> Self {
+    pub fn new(class: String) -> Self {
         Device {
             id: xid::new(),
-            class: desc.clone(),
+            class: class.clone(),
             physical: Option::None,
         }
     }
@@ -22,7 +22,7 @@ impl Device {
 impl Clone for Device {
     fn clone(&self) -> Self {
         Self {
-            id: xid::new(),            // we must assign new ID for the device
+            id: self.id.clone(),
             class: self.class.clone(), // we keep class
             physical: Option::None,    // we don't clone physical device
         }
