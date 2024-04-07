@@ -4,6 +4,7 @@ pub mod home;
 pub mod logical;
 pub mod logical_device;
 pub mod physical;
+pub mod report;
 pub mod room;
 pub mod socket;
 pub mod tsensor;

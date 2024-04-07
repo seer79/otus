@@ -16,8 +16,8 @@ pub struct ACSocket {
 impl ACSocket {
     pub fn new(serial: String, manufactor: String) -> Self {
         ACSocket {
-            serial: serial,
-            manufactor: manufactor,
+            serial,
+            manufactor,
             state: PowerState::OFF,
         }
     }
@@ -65,8 +65,21 @@ impl PhysicalDevice for ACSocket {
         Ok(vec![CMD_STATUS, CMD_GET_POWER_CONSUMPTION, CMD_SELF_TEST])
     }
 
-    fn execute_cmd(
+    fn execute_cmd_mut(
         &mut self,
+        cmd: DeviceCommand,
+        _ars: Option<Vec<String>>,
+    ) -> Result<Option<CommandResult>, ErrorCode> {
+        match cmd {
+            CMD_GET_POWER_CONSUMPTION => Ok(Some(CommandResult::Float32(self.get_consumption()))),
+            CMD_SELF_TEST => Ok(Some(CommandResult::Str(String::from("PASSED")))),
+            CMD_STATUS => Ok(Some(CommandResult::Str(self.get_status()))),
+            _ => return Err(ErrorCode::UnsupportedCommand),
+        }
+    }
+
+    fn execute_cmd(
+        &self,
         cmd: DeviceCommand,
         _ars: Option<Vec<String>>,
     ) -> Result<Option<CommandResult>, ErrorCode> {
@@ -112,13 +125,13 @@ mod tests {
             }
         });
         assert!({
-            match socket.execute_cmd(CMD_SELF_TEST, Option::None) {
+            match socket.execute_cmd_mut(CMD_SELF_TEST, Option::None) {
                 Ok(Some(CommandResult::Str(v))) => v == "PASSED",
                 _ => false,
             }
         });
         assert!({
-            match socket.execute_cmd(CMD_STATUS, Option::None) {
+            match socket.execute_cmd_mut(CMD_STATUS, Option::None) {
                 Ok(Some(CommandResult::Str(v))) => {
                     println!("{:?}", v);
                     true
@@ -127,7 +140,7 @@ mod tests {
             }
         });
         assert!({
-            match socket.execute_cmd(CMD_GET_POWER_CONSUMPTION, Option::None) {
+            match socket.execute_cmd_mut(CMD_GET_POWER_CONSUMPTION, Option::None) {
                 Ok(Some(CommandResult::Float32(v))) => v > 0.0,
                 _ => false,
             }

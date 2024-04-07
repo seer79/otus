@@ -15,9 +15,15 @@ pub trait PhysicalDevice {
     /// return list of supported command of the device
     fn get_supported_commands(&self) -> Result<Vec<DeviceCommand>, ErrorCode>;
     /// execute command on device. Command may take arguments as strings (devices usually talks MQTT, so string is Ok for generic interface)
-    fn execute_cmd(
+    fn execute_cmd_mut(
         &mut self,
         cmd: DeviceCommand,
         args: Option<Vec<String>>,
+    ) -> Result<Option<CommandResult>, ErrorCode>;
+    /// execute command on device (immutable). Command may take arguments as strings (devices usually talks MQTT, so string is Ok for generic interface)
+    fn execute_cmd(
+        &self,
+        cmd: DeviceCommand,
+        ars: Option<Vec<String>>,
     ) -> Result<Option<CommandResult>, ErrorCode>;
 }

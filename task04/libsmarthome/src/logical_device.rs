@@ -83,12 +83,23 @@ impl IoTDevice for Device {
         }
     }
 
-    fn execute_cmd(
+    fn execute_cmd_mut(
         &mut self,
         cmd: DeviceCommand,
         ars: Option<Vec<String>>,
     ) -> Result<Option<CommandResult>, ErrorCode> {
         match &mut self.physical {
+            Some(d) => d.execute_cmd_mut(cmd, ars),
+            None => Err(ErrorCode::Unbound),
+        }
+    }
+
+    fn execute_cmd(
+        &self,
+        cmd: DeviceCommand,
+        ars: Option<Vec<String>>,
+    ) -> Result<Option<CommandResult>, ErrorCode> {
+        match &self.physical {
             Some(d) => d.execute_cmd(cmd, ars),
             None => Err(ErrorCode::Unbound),
         }
@@ -114,7 +125,7 @@ mod tests {
     fn clone_test() {
         let d1 = Device::new(String::from("device A"));
         let clone = d1.clone();
-        assert_ne!(d1.get_id(), clone.get_id());
+        assert_eq!(d1.get_id(), clone.get_id());
         assert_eq!(d1.get_class(), clone.get_class());
     }
 
@@ -140,7 +151,7 @@ mod tests {
         })
         .is_ok());
         assert!(
-            (match md.execute_cmd(CMD_GET_POWER_CONSUMPTION, Option::None) {
+            (match md.execute_cmd_mut(CMD_GET_POWER_CONSUMPTION, Option::None) {
                 Err(ErrorCode::Unbound) => Ok(()),
                 _ => Err("invalid state"),
             })

@@ -1,5 +1,5 @@
 extern crate libsmarthome;
 
 fn main() {
-    println!("Hello, world! {:?}", libsmarthome::add(1, 2),);
+    println!("Use 'cargo run --example report' to show report generation");
 }

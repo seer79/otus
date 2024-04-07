@@ -1,11 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use crate::factory::PhysicalDeviceFactory;
 use crate::logical::{ErrorCode, PowerState};
+use crate::report::{Reporter, RoomRef};
 use crate::room::*;
 
 /// Home describes smart home
 #[derive(Clone, Default)]
 pub struct Home {
+    /// Home name
+    name: String,
     /// Rooms a store as Box<> since they can include many devices
     rooms: HashMap<xid::Id, Box<Room>>,
     /// Help map to find room by label
@@ -26,12 +30,120 @@ impl Home {
     /// Switch power of home
     pub fn switch_power(&mut self, state: PowerState) -> Result<(), ErrorCode> {
         for room in self.rooms.values_mut() {
-            match room.switch_power(state) {
-                Err(v) => return Err(v),
-                Ok(_) => (),
+            if let Err(v) = room.switch_power(state) {
+                return Err(v);
             }
         }
         Ok(())
+    }
+
+    /// Binds physical devices to logical ones
+    pub fn bind_physical_devices<F: PhysicalDeviceFactory>(
+        &mut self,
+        binder: &Binder<F>,
+    ) -> Result<(), ErrorCode> {
+        for room in self.rooms.values_mut() {
+            match room.accept_mut(binder) {
+                Ok(_) => (),
+                Err(v) => {
+                    return Err(v);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Generate status report for devices
+    pub fn create_report<T: Reporter>(&self, reporter: &T) -> String {
+        let mut report = format!("# IoT report for the home {:?}\n", self.name);
+        let mut missings: HashSet<String> = HashSet::default();
+        let mut errors: HashSet<String> = HashSet::default();
+        let mut room_reports: HashMap<xid::Id, Vec<String>> = HashMap::default();
+        reporter
+            .get_device_refs()
+            .iter()
+            .for_each(|dref| match &dref.0 {
+                RoomRef::ID(id) => match self.rooms.get(id) {
+                    Some(r) => match reporter.get_device_status(r, &dref.1) {
+                        Ok(status) => {
+                            if !room_reports.contains_key(id) {
+                                room_reports.insert(id.clone(), vec![status]);
+                            } else {
+                                let v = room_reports.get_mut(id).unwrap();
+                                v.push(status);
+                            }
+                        }
+                        Err(ErrorCode::DeviceIsMissing(id)) => {
+                            missings.insert(format!(
+                                "ERROR: Device {} is not found in the room {}",
+                                id,
+                                r.get_label()
+                            ));
+                        }
+                        Err(v) => {
+                            errors.insert(format!("ERROR: device {}, err: {:?}", dref.1, v));
+                        }
+                    },
+                    None => {
+                        missings.insert(format!("ERROR: Room with ID {} is missing", id));
+                    }
+                },
+                RoomRef::Label(l) => match self.label_map.get(l) {
+                    Some(id) => {
+                        let room = self.rooms.get(id).unwrap();
+                        match reporter.get_device_status(room, &dref.1) {
+                            Ok(status) => {
+                                if !room_reports.contains_key(id) {
+                                    room_reports.insert(id.clone(), vec![status]);
+                                } else {
+                                    let v = room_reports.get_mut(id).unwrap();
+                                    v.push(status);
+                                }
+                            }
+                            Err(ErrorCode::DeviceIsMissing(id)) => {
+                                missings.insert(format!(
+                                    "ERROR: Device {} is not found in the room {}",
+                                    id,
+                                    room.get_label()
+                                ));
+                            }
+                            Err(v) => {
+                                errors.insert(format!("ERROR: device {}, err: {:?}", dref.1, v));
+                            }
+                        }
+                    }
+                    None => {
+                        missings.insert(format!("Room with label {} is missing", l));
+                    }
+                },
+            });
+        let mut room_by_name = self.label_map.keys().into_iter().collect::<Vec<&String>>();
+        room_by_name.sort();
+        room_by_name.iter().for_each(|l| {
+            let room_id = self.label_map.get(*l).unwrap();
+            if let Some(r) = room_reports.get(room_id) {
+                report += format!("## Room '{}'\n", l).as_str();
+                r.iter().for_each(|s| {
+                    report += s;
+                    report += "\n";
+                })
+            }
+        });
+        report += "## Missing devices\n";
+        let mut missing_sorted = missings.iter().collect::<Vec<&String>>();
+        missing_sorted.sort();
+        missing_sorted.iter().for_each(|s| {
+            report += s;
+            report += "\n";
+        });
+        report += "## Errors\n";
+        let mut errors_sorted = errors.iter().collect::<Vec<&String>>();
+        errors_sorted.sort();
+        errors_sorted.iter().for_each(|s| {
+            report += s;
+            report += "\n";
+        });
+        report
     }
 }
 
@@ -44,6 +156,11 @@ impl HomeBuilder {
         Self {
             home: Box::new(Home::default()),
         }
+    }
+
+    pub fn set_name(&mut self, n: String) -> &mut Self {
+        self.home.name = n.clone();
+        self
     }
 
     pub fn add_room(&mut self, r: Box<Room>) -> &mut Self {
@@ -70,7 +187,10 @@ mod tests {
         let rlabel = String::from("Room A");
         let r = RoomBuilder::new().set_label(rlabel.clone()).build();
         let rid = r.get_id();
-        let home = HomeBuilder::new().add_room(Box::new(r)).build();
+        let home = HomeBuilder::new()
+            .set_name(String::from("My home"))
+            .add_room(Box::new(r))
+            .build();
         let mut mhome = HomeBuilder::new()
             .add_room(Box::new(
                 RoomBuilder::new().set_label(rlabel.clone()).build(),

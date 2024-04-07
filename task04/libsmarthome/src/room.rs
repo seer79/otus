@@ -82,6 +82,19 @@ impl Room {
         Ok(())
     }
 
+    /// send command to the device in room
+    pub fn send_cmd(
+        &self,
+        &device_id: &xid::Id,
+        cmd: DeviceCommand,
+        args: Option<Vec<String>>,
+    ) -> Result<Option<CommandResult>, ErrorCode> {
+        match self.devices.get(&device_id) {
+            Some(d) => d.execute_cmd(cmd, args),
+            None => Err(ErrorCode::DeviceIsMissing(device_id.clone())),
+        }
+    }
+
     /// Mutable visitor
     pub fn accept_mut<T: DeviceVisitor>(&mut self, visitor: &T) -> Result<(), ErrorCode> {
         for v in self.devices.values_mut() {
@@ -128,17 +141,17 @@ impl RoomBuilder {
 }
 
 /// Binds logical devices to physical in the room
-pub struct Binder<F: PhdFactory> {
+pub struct Binder<F: PhysicalDeviceFactory> {
     factory: F,
 }
 
-impl<F: PhdFactory> Binder<F> {
+impl<F: PhysicalDeviceFactory> Binder<F> {
     pub fn new(f: F) -> Self {
         Self { factory: f }
     }
 }
 
-impl<F: PhdFactory> DeviceVisitor for Binder<F> {
+impl<F: PhysicalDeviceFactory> DeviceVisitor for Binder<F> {
     fn accept_mut(&self, d: &mut Device) -> Result<bool, ErrorCode> {
         match self.factory.create_physical_device(d) {
             Ok(pd) => match d.bind(pd) {

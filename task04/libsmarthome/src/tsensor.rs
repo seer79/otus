@@ -29,8 +29,8 @@ pub fn celsius_to_fahrenheit(temp: f32) -> f32 {
 impl TSensor {
     pub fn new(serial: String, manufactor: String) -> Self {
         TSensor {
-            serial: serial,
-            manufactor: manufactor,
+            serial,
+            manufactor,
             state: PowerState::OFF,
         }
     }
@@ -96,8 +96,22 @@ impl PhysicalDevice for TSensor {
         ])
     }
 
-    fn execute_cmd(
+    fn execute_cmd_mut(
         &mut self,
+        cmd: DeviceCommand,
+        _args: Option<Vec<String>>,
+    ) -> Result<Option<CommandResult>, ErrorCode> {
+        match cmd {
+            CMD_GET_POWER_CONSUMPTION => Ok(Some(CommandResult::Float32(self.get_consumption()))),
+            CMD_SELF_TEST => Ok(Some(CommandResult::Str(String::from("PASSED")))),
+            CMD_STATUS => Ok(Some(CommandResult::Str(self.get_status()))),
+            CMD_GET_TEMPERATURE => Ok(Some(CommandResult::Float32(self.get_temperature()))),
+            _ => return Err(ErrorCode::UnsupportedCommand),
+        }
+    }
+
+    fn execute_cmd(
+        &self,
         cmd: DeviceCommand,
         _args: Option<Vec<String>>,
     ) -> Result<Option<CommandResult>, ErrorCode> {
@@ -119,7 +133,7 @@ mod tests {
     fn test_tsensor() {
         let mut sensor = TSensor::new(String::from("124"), String::from("IBM"));
         assert!(sensor.get_consumption() == 0.0);
-        assert!(sensor.get_temperature() == NAN);
+        assert!(sensor.get_temperature().is_nan());
         assert!({
             match sensor.set_power_state(PowerState::ON) {
                 Ok(PowerState::ON) => true,
@@ -137,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ac_commands() {
+    fn test_tsensor_commands() {
         let mut sensor = TSensor::new(String::from("124"), String::from("IBM"));
         assert!({
             match sensor.set_power_state(PowerState::ON) {
@@ -146,13 +160,13 @@ mod tests {
             }
         });
         assert!({
-            match sensor.execute_cmd(CMD_SELF_TEST, Option::None) {
+            match sensor.execute_cmd_mut(CMD_SELF_TEST, Option::None) {
                 Ok(Some(CommandResult::Str(v))) => v == "PASSED",
                 _ => false,
             }
         });
         assert!({
-            match sensor.execute_cmd(CMD_STATUS, Option::None) {
+            match sensor.execute_cmd_mut(CMD_STATUS, Option::None) {
                 Ok(Some(CommandResult::Str(v))) => {
                     println!("{:?}", v);
                     true
@@ -161,13 +175,13 @@ mod tests {
             }
         });
         assert!({
-            match sensor.execute_cmd(CMD_GET_POWER_CONSUMPTION, Option::None) {
+            match sensor.execute_cmd_mut(CMD_GET_POWER_CONSUMPTION, Option::None) {
                 Ok(Some(CommandResult::Float32(v))) => v > 0.0,
                 _ => false,
             }
         });
         assert!({
-            match sensor.execute_cmd(CMD_GET_TEMPERATURE, Option::None) {
+            match sensor.execute_cmd_mut(CMD_GET_TEMPERATURE, Option::None) {
                 Ok(Some(CommandResult::Float32(v))) => v > 0.0,
                 _ => false,
             }

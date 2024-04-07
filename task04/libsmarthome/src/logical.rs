@@ -23,8 +23,12 @@ pub enum ErrorCode {
     AlreadyBound,
     /// Requested command is unsupported
     UnsupportedCommand,
+    /// Command returned unexpected format
+    UnexpectedResultFormat,
     /// Command failed, value may include additional details
     CommandFailed(String),
+    /// Device is not found in expected place
+    DeviceIsMissing(xid::Id),
 }
 
 /// DeviceCommand describes command that can be executed by IoT device
@@ -63,8 +67,14 @@ pub trait IoTDevice {
     /// return list of supported command of the device
     fn get_supported_commands(&self) -> Result<Vec<DeviceCommand>, ErrorCode>;
     /// execute command on device. Command may take arguments as strings (devices usually talks MQTT, so string is Ok for generic interface)
-    fn execute_cmd(
+    fn execute_cmd_mut(
         &mut self,
+        cmd: DeviceCommand,
+        ars: Option<Vec<String>>,
+    ) -> Result<Option<CommandResult>, ErrorCode>;
+    /// execute command on device (immutable). Command may take arguments as strings (devices usually talks MQTT, so string is Ok for generic interface)
+    fn execute_cmd(
+        &self,
         cmd: DeviceCommand,
         ars: Option<Vec<String>>,
     ) -> Result<Option<CommandResult>, ErrorCode>;
