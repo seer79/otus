@@ -8,7 +8,7 @@ use libsmarthome::room::*;
 /// Show report generation for smart home
 fn main() {
     // factory for generating physical devices for logical one
-    let factory = SimpleClassFactory::default();
+    let factory = SimpleClassFactory {};
     let binder = Binder::new(factory);
 
     // room label

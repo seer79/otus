@@ -30,9 +30,7 @@ impl Home {
     /// Switch power of home
     pub fn switch_power(&mut self, state: PowerState) -> Result<(), ErrorCode> {
         for room in self.rooms.values_mut() {
-            if let Err(v) = room.switch_power(state) {
-                return Err(v);
-            }
+            room.switch_power(state)?
         }
         Ok(())
     }
@@ -67,7 +65,7 @@ impl Home {
                     Some(r) => match reporter.get_device_status(r, &dref.1) {
                         Ok(status) => {
                             if !room_reports.contains_key(id) {
-                                room_reports.insert(id.clone(), vec![status]);
+                                room_reports.insert(*id, vec![status]);
                             } else {
                                 let v = room_reports.get_mut(id).unwrap();
                                 v.push(status);
@@ -94,7 +92,7 @@ impl Home {
                         match reporter.get_device_status(room, &dref.1) {
                             Ok(status) => {
                                 if !room_reports.contains_key(id) {
-                                    room_reports.insert(id.clone(), vec![status]);
+                                    room_reports.insert(*id, vec![status]);
                                 } else {
                                     let v = room_reports.get_mut(id).unwrap();
                                     v.push(status);
@@ -117,7 +115,7 @@ impl Home {
                     }
                 },
             });
-        let mut room_by_name = self.label_map.keys().into_iter().collect::<Vec<&String>>();
+        let mut room_by_name = self.label_map.keys().collect::<Vec<&String>>();
         room_by_name.sort();
         room_by_name.iter().for_each(|l| {
             let room_id = self.label_map.get(*l).unwrap();
@@ -147,6 +145,7 @@ impl Home {
     }
 }
 
+#[derive(Default)]
 pub struct HomeBuilder {
     home: Box<Home>,
 }
@@ -154,7 +153,7 @@ pub struct HomeBuilder {
 impl HomeBuilder {
     pub fn new() -> Self {
         Self {
-            home: Box::new(Home::default()),
+            home: Box::default(),
         }
     }
 
@@ -166,8 +165,8 @@ impl HomeBuilder {
     pub fn add_room(&mut self, r: Box<Room>) -> &mut Self {
         let id = r.get_id();
         let label = r.get_label();
-        self.home.rooms.insert(id.clone(), r);
-        self.home.label_map.insert(label.clone(), id.clone());
+        self.home.rooms.insert(id, r);
+        self.home.label_map.insert(label.clone(), id);
         self
     }
 

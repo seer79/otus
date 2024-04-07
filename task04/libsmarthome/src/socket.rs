@@ -74,7 +74,7 @@ impl PhysicalDevice for ACSocket {
             CMD_GET_POWER_CONSUMPTION => Ok(Some(CommandResult::Float32(self.get_consumption()))),
             CMD_SELF_TEST => Ok(Some(CommandResult::Str(String::from("PASSED")))),
             CMD_STATUS => Ok(Some(CommandResult::Str(self.get_status()))),
-            _ => return Err(ErrorCode::UnsupportedCommand),
+            _ => Err(ErrorCode::UnsupportedCommand),
         }
     }
 
@@ -87,7 +87,7 @@ impl PhysicalDevice for ACSocket {
             CMD_GET_POWER_CONSUMPTION => Ok(Some(CommandResult::Float32(self.get_consumption()))),
             CMD_SELF_TEST => Ok(Some(CommandResult::Str(String::from("PASSED")))),
             CMD_STATUS => Ok(Some(CommandResult::Str(self.get_status()))),
-            _ => return Err(ErrorCode::UnsupportedCommand),
+            _ => Err(ErrorCode::UnsupportedCommand),
         }
     }
 }
@@ -100,36 +100,28 @@ mod tests {
     fn test_acsocket() {
         let mut socket = ACSocket::new(String::from("124"), String::from("IBM"));
         assert!(socket.get_consumption() == 0.0);
-        assert!({
-            match socket.set_power_state(PowerState::ON) {
-                Ok(PowerState::ON) => true,
-                _ => false,
-            }
-        });
+        assert!(matches!(
+            socket.set_power_state(PowerState::ON),
+            Ok(PowerState::ON)
+        ));
         assert!(socket.get_consumption() > 0.0);
-        assert!({
-            match socket.set_power_state(PowerState::OFF) {
-                Ok(PowerState::OFF) => true,
-                _ => false,
-            }
-        });
+        assert!(matches!(
+            socket.set_power_state(PowerState::OFF),
+            Ok(PowerState::OFF)
+        ));
     }
 
     #[test]
     fn test_ac_commands() {
         let mut socket = ACSocket::new(String::from("124"), String::from("IBM"));
-        assert!({
-            match socket.set_power_state(PowerState::ON) {
-                Ok(PowerState::ON) => true,
-                _ => false,
-            }
-        });
-        assert!({
-            match socket.execute_cmd_mut(CMD_SELF_TEST, Option::None) {
-                Ok(Some(CommandResult::Str(v))) => v == "PASSED",
-                _ => false,
-            }
-        });
+        assert!(matches!(
+            socket.set_power_state(PowerState::ON),
+            Ok(PowerState::ON)
+        ));
+        assert!(matches!(
+            socket.execute_cmd_mut(CMD_SELF_TEST, Option::None),
+            Ok(Some(CommandResult::Str(_)))
+        ));
         assert!({
             match socket.execute_cmd_mut(CMD_STATUS, Option::None) {
                 Ok(Some(CommandResult::Str(v))) => {

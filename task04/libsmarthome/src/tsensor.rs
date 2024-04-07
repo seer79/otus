@@ -106,7 +106,7 @@ impl PhysicalDevice for TSensor {
             CMD_SELF_TEST => Ok(Some(CommandResult::Str(String::from("PASSED")))),
             CMD_STATUS => Ok(Some(CommandResult::Str(self.get_status()))),
             CMD_GET_TEMPERATURE => Ok(Some(CommandResult::Float32(self.get_temperature()))),
-            _ => return Err(ErrorCode::UnsupportedCommand),
+            _ => Err(ErrorCode::UnsupportedCommand),
         }
     }
 
@@ -120,7 +120,7 @@ impl PhysicalDevice for TSensor {
             CMD_SELF_TEST => Ok(Some(CommandResult::Str(String::from("PASSED")))),
             CMD_STATUS => Ok(Some(CommandResult::Str(self.get_status()))),
             CMD_GET_TEMPERATURE => Ok(Some(CommandResult::Float32(self.get_temperature()))),
-            _ => return Err(ErrorCode::UnsupportedCommand),
+            _ => Err(ErrorCode::UnsupportedCommand),
         }
     }
 }
@@ -134,31 +134,25 @@ mod tests {
         let mut sensor = TSensor::new(String::from("124"), String::from("IBM"));
         assert!(sensor.get_consumption() == 0.0);
         assert!(sensor.get_temperature().is_nan());
-        assert!({
-            match sensor.set_power_state(PowerState::ON) {
-                Ok(PowerState::ON) => true,
-                _ => false,
-            }
-        });
+        assert!(matches!(
+            sensor.set_power_state(PowerState::ON),
+            Ok(PowerState::ON)
+        ));
         assert!(sensor.get_consumption() > 0.0);
         assert!(sensor.get_temperature() > 0.0);
-        assert!({
-            match sensor.set_power_state(PowerState::OFF) {
-                Ok(PowerState::OFF) => true,
-                _ => false,
-            }
-        });
+        assert!(matches!(
+            sensor.set_power_state(PowerState::OFF),
+            Ok(PowerState::OFF)
+        ));
     }
 
     #[test]
     fn test_tsensor_commands() {
         let mut sensor = TSensor::new(String::from("124"), String::from("IBM"));
-        assert!({
-            match sensor.set_power_state(PowerState::ON) {
-                Ok(PowerState::ON) => true,
-                _ => false,
-            }
-        });
+        assert!(matches!(
+            sensor.set_power_state(PowerState::ON),
+            Ok(PowerState::ON)
+        ));
         assert!({
             match sensor.execute_cmd_mut(CMD_SELF_TEST, Option::None) {
                 Ok(Some(CommandResult::Str(v))) => v == "PASSED",

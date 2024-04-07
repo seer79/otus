@@ -14,6 +14,12 @@ pub struct Room {
     devices: HashMap<xid::Id, Device>,
 }
 
+impl Default for Room {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Describe API for device visitor of home room
 pub trait DeviceVisitor {
     fn accept_mut(&self, d: &mut Device) -> Result<bool, ErrorCode>;
@@ -22,6 +28,7 @@ pub trait DeviceVisitor {
 }
 
 /// Defines builder pattern for Room
+#[derive(Default)]
 pub struct RoomBuilder {
     room: Room,
 }
@@ -91,7 +98,7 @@ impl Room {
     ) -> Result<Option<CommandResult>, ErrorCode> {
         match self.devices.get(&device_id) {
             Some(d) => d.execute_cmd(cmd, args),
-            None => Err(ErrorCode::DeviceIsMissing(device_id.clone())),
+            None => Err(ErrorCode::DeviceIsMissing(device_id)),
         }
     }
 
@@ -190,7 +197,7 @@ mod tests {
     fn test_binder() {
         let socket1 = Device::new(String::from("socket"));
         let socket2 = Device::new(String::from("socket"));
-        let factory = SimpleClassFactory::default();
+        let factory = SimpleClassFactory {};
         let binder = Binder::new(factory);
         let mut room = RoomBuilder::new()
             .set_label(String::from("aa"))

@@ -22,7 +22,7 @@ impl Device {
 impl Clone for Device {
     fn clone(&self) -> Self {
         Self {
-            id: self.id.clone(),
+            id: self.id,
             class: self.class.clone(), // we keep class
             physical: Option::None,    // we don't clone physical device
         }

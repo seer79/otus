@@ -21,8 +21,7 @@ pub trait Reporter {
     fn get_device_refs(&self) -> Vec<DeviceRef>;
 
     /// generates report for the device
-    fn get_device_status(&self, room: &Box<Room>, device_id: &xid::Id)
-        -> Result<String, ErrorCode>;
+    fn get_device_status(&self, room: &Room, device_id: &xid::Id) -> Result<String, ErrorCode>;
 }
 
 /// Simple reporter based on list of device refs and STATUS command
@@ -36,11 +35,7 @@ impl Reporter for SimpleReporter {
         self.refs.clone()
     }
 
-    fn get_device_status(
-        &self,
-        room: &Box<Room>,
-        device_id: &xid::Id,
-    ) -> Result<String, ErrorCode> {
+    fn get_device_status(&self, room: &Room, device_id: &xid::Id) -> Result<String, ErrorCode> {
         match room.send_cmd(device_id, CMD_STATUS, Option::None) {
             Ok(Some(CommandResult::Str(status))) => Ok(status),
             Err(v) => Err(v),
@@ -51,7 +46,6 @@ impl Reporter for SimpleReporter {
 
 impl SimpleReporter {
     pub fn add_device(&mut self, room_id: &xid::Id, device_id: &xid::Id) {
-        self.refs
-            .push(DeviceRef(RoomRef::ID(room_id.clone()), device_id.clone()));
+        self.refs.push(DeviceRef(RoomRef::ID(*room_id), *device_id));
     }
 }

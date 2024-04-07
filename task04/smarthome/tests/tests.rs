@@ -11,7 +11,7 @@ use libsmarthome::room::*;
 #[test]
 fn itest_valid_devices() {
     // factory for generating physical devices for logical one
-    let factory = SimpleClassFactory::default();
+    let factory = SimpleClassFactory {};
     let binder = Binder::new(factory);
 
     // room label
@@ -64,7 +64,7 @@ fn itest_valid_devices() {
 #[test]
 fn itest_missing_devices() {
     // factory for generating physical devices for logical one
-    let factory = SimpleClassFactory::default();
+    let factory = SimpleClassFactory {};
     let binder = Binder::new(factory);
 
     // room label
