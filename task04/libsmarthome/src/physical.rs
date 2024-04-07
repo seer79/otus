@@ -1,11 +1,6 @@
 //! Physical module implements physical models for IoT devices
 
-use std::error::Error;
-
-use crate::{
-    logical::{self, *},
-    logical_device::Device,
-};
+use crate::logical::*;
 
 /// PhysicalDevice defines common interface for physical IoT devices
 pub trait PhysicalDevice {
@@ -23,6 +18,6 @@ pub trait PhysicalDevice {
     fn execute_cmd(
         &mut self,
         cmd: DeviceCommand,
-        ars: Option<Vec<String>>,
+        args: Option<Vec<String>>,
     ) -> Result<Option<CommandResult>, ErrorCode>;
 }

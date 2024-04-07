@@ -9,3 +9,5 @@ pub const CMD_GET_POWER_CONSUMPTION: DeviceCommand = DeviceCommand(
     "get_power_consumption",
     "returns instance consumption of the device",
 );
+pub const CMD_GET_TEMPERATURE: DeviceCommand =
+    DeviceCommand(3, "get_temperature", "returns temperature");

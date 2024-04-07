@@ -49,6 +49,14 @@ impl Room {
         self
     }
 
+    pub fn get_display_name(&self) -> String {
+        if self.label.is_empty() {
+            self.id.to_string()
+        } else {
+            self.label.clone()
+        }
+    }
+
     pub fn has_device(&self, id: xid::Id) -> bool {
         self.devices.contains_key(&id)
     }
@@ -63,6 +71,18 @@ impl Room {
         self
     }
 
+    /// Set power state for devices in the room
+    pub fn switch_power(&mut self, state: PowerState) -> Result<(), ErrorCode> {
+        for d in self.devices.values_mut() {
+            match d.set_power_state(state) {
+                Ok(_) => (),
+                Err(v) => return Err(v),
+            }
+        }
+        Ok(())
+    }
+
+    /// Mutable visitor
     pub fn accept_mut<T: DeviceVisitor>(&mut self, visitor: &T) -> Result<(), ErrorCode> {
         for v in self.devices.values_mut() {
             match visitor.accept_mut(v) {
@@ -74,6 +94,7 @@ impl Room {
         Ok(())
     }
 
+    /// Immutable visitor
     pub fn accept<T: DeviceVisitor>(&self, visitor: &T) -> Result<(), ErrorCode> {
         for v in self.devices.values() {
             match visitor.accept(v) {
