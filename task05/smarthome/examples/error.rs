@@ -1,24 +1,19 @@
-//! This example show usage of reporter for smart home
+//! This example show usage of custom error type
 
 use libsmarthome::factory::*;
 use libsmarthome::home::*;
 use libsmarthome::logical::*;
 use libsmarthome::logical_device::Device;
-use libsmarthome::report::SimpleReporter;
 use libsmarthome::room::*;
 
 /// Show report generation for smart home
 fn main() {
-    // factory for generating physical devices for logical one
-    let factory = SimpleClassFactory {};
-    let binder = Binder::new(factory);
-
     // room label
     let rlabel1 = String::from("Room A");
     let rlabel2 = String::from("Room B");
 
     // Sockets (logical devices)
-    let s1 = Device::new(String::from("socket"));
+    let mut s1 = Device::new(String::from("socket"));
     let s2 = Device::new(String::from("socket"));
     let s3 = Device::new(String::from("socket"));
     let s4 = Device::new(String::from("socket"));
@@ -44,36 +39,27 @@ fn main() {
         .add_device(&t3)
         .build();
 
-    let rid1 = room1.get_id();
-    let rid2 = room2.get_id();
     let mut my_home = HomeBuilder::new()
         .set_name(String::from("Jacks home"))
         .add_room(Box::new(room1))
         .add_room(Box::new(room2))
         .build();
 
-    // bind  physical devices
-    match my_home.bind_physical_devices(&binder) {
-        Ok(_) => println!("bound logical devices to physical"),
-        Err(_) => panic!("Cannot bind to physical devices"),
-    }
-
-    // turn power on
+    // Try to power on without binding to physical devices
     match my_home.switch_power(PowerState::ON) {
-        Ok(_) => println!("Power is ON"),
-        Err(_) => panic!("Cannot turn power ON"),
+        Ok(_) => panic!("unexpected state, no physical devices bound"),
+        Err(err) => println!("EXPECTED ERROR: {}", err), // this is expected behavior
     }
 
-    // create reporter
-    let mut reporter = SimpleReporter::default();
-    reporter.add_device(&rid1, &s1.get_id());
-    reporter.add_device(&rid1, &s2.get_id());
-    reporter.add_device(&rid1, &s3.get_id());
-    reporter.add_device(&rid1, &t1.get_id());
-    reporter.add_device(&rid1, &t2.get_id());
-    reporter.add_device(&rid2, &s4.get_id());
-    reporter.add_device(&rid2, &t3.get_id());
-
-    let report = my_home.create_report(&reporter);
-    println!("{}", report);
+    // Try to bind logical device two times without unbind operation
+    let factory = SimpleClassFactory {};
+    let pd1 = factory.create_physical_device(&s1).unwrap();
+    let pd2 = factory.create_physical_device(&s1).unwrap();
+    match s1.bind(pd1) {
+        Ok(_) => match s1.bind(pd2) {
+            Ok(_) => panic!("unexpected double bind"),
+            Err(v) => println!("EXPECTED ERROR: {}", v), // this is expected behavior
+        },
+        Err(_) => panic!("unexpected error"),
+    }
 }
