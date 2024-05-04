@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use crate::device_ref::DeviceRef;
 use crate::error::DeviceError;
 use crate::factory::*;
 use crate::logical::*;
@@ -23,7 +24,7 @@ impl Default for Room {
 
 /// Describe API for device visitor of home room
 pub trait DeviceVisitor {
-    fn accept_mut(&self, d: &mut Device) -> Result<bool, DeviceError>;
+    fn accept_mut(&mut self, d: &mut Device) -> Result<bool, DeviceError>;
 
     fn accept(&self, d: &Device) -> Result<bool, DeviceError>;
 }
@@ -65,6 +66,13 @@ impl Room {
         }
     }
 
+    pub fn get_devices(&self) -> Vec<DeviceRef> {
+        self.devices
+            .iter()
+            .map(|d| DeviceRef::new(self.get_id(), self.get_label(), *d.0, d.1.get_class()))
+            .collect()
+    }
+
     pub fn has_device(&self, id: xid::Id) -> bool {
         self.devices.contains_key(&id)
     }
@@ -104,7 +112,7 @@ impl Room {
     }
 
     /// Mutable visitor
-    pub fn accept_mut<T: DeviceVisitor>(&mut self, visitor: &T) -> Result<(), DeviceError> {
+    pub fn accept_mut<T: DeviceVisitor>(&mut self, visitor: &mut T) -> Result<(), DeviceError> {
         for v in self.devices.values_mut() {
             match visitor.accept_mut(v) {
                 Ok(true) => (),             // continue iteration
@@ -160,7 +168,7 @@ impl<F: PhysicalDeviceFactory> Binder<F> {
 }
 
 impl<F: PhysicalDeviceFactory> DeviceVisitor for Binder<F> {
-    fn accept_mut(&self, d: &mut Device) -> Result<bool, DeviceError> {
+    fn accept_mut(&mut self, d: &mut Device) -> Result<bool, DeviceError> {
         match self.factory.create_physical_device(d) {
             Ok(pd) => match d.bind(pd) {
                 Ok(_) => Ok(true),
@@ -199,13 +207,13 @@ mod tests {
         let socket1 = Device::new(String::from("socket"));
         let socket2 = Device::new(String::from("socket"));
         let factory = SimpleClassFactory {};
-        let binder = Binder::new(factory);
+        let mut binder = Binder::new(factory);
         let mut room = RoomBuilder::new()
             .set_label(String::from("aa"))
             .add_device(&socket1)
             .add_device(&socket2)
             .build();
-        assert!(room.accept_mut(&binder).is_ok());
+        assert!(room.accept_mut(&mut binder).is_ok());
         assert!(room.devices.get(&socket1.get_id()).unwrap().is_bound());
     }
 }

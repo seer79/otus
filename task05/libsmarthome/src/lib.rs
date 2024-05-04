@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod device_ref;
 pub mod error;
 pub mod factory;
 pub mod home;

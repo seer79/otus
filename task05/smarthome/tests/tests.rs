@@ -12,7 +12,7 @@ use libsmarthome::room::*;
 fn itest_valid_devices() {
     // factory for generating physical devices for logical one
     let factory = SimpleClassFactory {};
-    let binder = Binder::new(factory);
+    let mut binder = Binder::new(factory);
 
     // room label
     let rlabel = String::from("Room A");
@@ -42,7 +42,7 @@ fn itest_valid_devices() {
         .build();
 
     // test binding physical devices
-    assert!(my_home.bind_physical_devices(&binder).is_ok());
+    assert!(my_home.bind_physical_devices(&mut binder).is_ok());
 
     // turn power on
     assert!(my_home.switch_power(PowerState::ON).is_ok());
@@ -65,7 +65,7 @@ fn itest_valid_devices() {
 fn itest_missing_devices() {
     // factory for generating physical devices for logical one
     let factory = SimpleClassFactory {};
-    let binder = Binder::new(factory);
+    let mut binder = Binder::new(factory);
 
     // room label
     let rlabel = String::from("Room A");
@@ -92,7 +92,7 @@ fn itest_missing_devices() {
         .build();
 
     // test binding physical devices
-    assert!(my_home.bind_physical_devices(&binder).is_ok());
+    assert!(my_home.bind_physical_devices(&mut binder).is_ok());
 
     // turn power on
     assert!(my_home.switch_power(PowerState::ON).is_ok());

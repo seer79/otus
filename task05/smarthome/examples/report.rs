@@ -11,7 +11,7 @@ use libsmarthome::room::*;
 fn main() {
     // factory for generating physical devices for logical one
     let factory = SimpleClassFactory {};
-    let binder = Binder::new(factory);
+    let mut binder = Binder::new(factory);
 
     // room label
     let rlabel1 = String::from("Room A");
@@ -53,9 +53,9 @@ fn main() {
         .build();
 
     // bind  physical devices
-    match my_home.bind_physical_devices(&binder) {
-        Ok(_) => println!("bound logical devices to physical"),
-        Err(_) => panic!("Cannot bind to physical devices"),
+    match my_home.bind_physical_devices(&mut binder) {
+        Ok(_) => println!("INFO: bound logical devices to physical"),
+        Err(_) => panic!("ERROR: Cannot bind to physical devices"),
     }
 
     // turn power on
@@ -63,6 +63,13 @@ fn main() {
         Ok(_) => println!("Power is ON"),
         Err(_) => panic!("Cannot turn power ON"),
     }
+
+    // Quering home for devices
+    println!("-------------DEVICES IN HOME----------------------------");
+    let mut devices = my_home.get_devices();
+    devices.sort();
+    devices.iter().for_each(|r| println!("{}", r));
+    println!("--------------------------------------------------------");
 
     // create reporter
     let mut reporter = SimpleReporter::default();
@@ -74,6 +81,9 @@ fn main() {
     reporter.add_device(&rid2, &s4.get_id());
     reporter.add_device(&rid2, &t3.get_id());
 
+    // Generating report
     let report = my_home.create_report(&reporter);
+    println!("--------------------------------------------------------");
     println!("{}", report);
+    println!("--------------------------------------------------------");
 }

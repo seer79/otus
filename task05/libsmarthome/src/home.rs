@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet};
-
+use crate::device_ref::*;
 use crate::error::DeviceError;
 use crate::factory::PhysicalDeviceFactory;
 use crate::logical::PowerState;
 use crate::report::{Reporter, RoomRef};
 use crate::room::*;
+use std::collections::{HashMap, HashSet};
 
 /// Home describes smart home
 #[derive(Clone, Default)]
@@ -18,6 +18,11 @@ pub struct Home {
 }
 
 impl Home {
+    /// Collect references to devices in home
+    pub fn get_devices(&self) -> Vec<DeviceRef> {
+        self.rooms.values().flat_map(|r| r.get_devices()).collect()
+    }
+
     /// Check if home has room with given id
     pub fn has_room_with_id(&self, id: &xid::Id) -> bool {
         self.rooms.contains_key(id)
@@ -39,7 +44,7 @@ impl Home {
     /// Binds physical devices to logical ones
     pub fn bind_physical_devices<F: PhysicalDeviceFactory>(
         &mut self,
-        binder: &Binder<F>,
+        binder: &mut Binder<F>,
     ) -> Result<(), DeviceError> {
         for room in self.rooms.values_mut() {
             match room.accept_mut(binder) {
@@ -132,15 +137,19 @@ impl Home {
         let mut missing_sorted = missings.iter().collect::<Vec<&String>>();
         missing_sorted.sort();
         missing_sorted.iter().for_each(|s| {
+            if !report.is_empty() {
+                report += "\n";
+            }
             report += s;
-            report += "\n";
         });
-        report += "## Errors\n";
+        report += "## Errors";
         let mut errors_sorted = errors.iter().collect::<Vec<&String>>();
         errors_sorted.sort();
         errors_sorted.iter().for_each(|s| {
+            if !report.is_empty() {
+                report += "\n";
+            }
             report += s;
-            report += "\n";
         });
         report
     }
