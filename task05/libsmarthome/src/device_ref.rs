@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 /// Describe reference to device in the home: <room id, room label, device id, device class>
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DeviceRef(xid::Id, String, xid::Id, String);
 
 impl DeviceRef {
@@ -35,15 +35,5 @@ impl Display for DeviceRef {
             "room id = {}, room name = {}, device id = {}, device class = {}",
             self.0, self.1, self.2, self.3
         )
-    }
-}
-
-impl Ord for DeviceRef {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.1.cmp(&other.1) {
-            std::cmp::Ordering::Less => std::cmp::Ordering::Less,
-            std::cmp::Ordering::Equal => self.3.cmp(&other.3),
-            std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
-        }
     }
 }
