@@ -77,9 +77,10 @@ impl Room {
         self.devices.contains_key(&id)
     }
 
-    pub fn add_device(&mut self, d: Device) -> &mut Self {
+    pub fn add_device(&mut self, d: Device) -> xid::Id {
+        let id = d.get_id();
         self.devices.insert(d.get_id(), d);
-        self
+        id
     }
 
     pub fn remove_device(&mut self, id: &xid::Id) -> &mut Self {

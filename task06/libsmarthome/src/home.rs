@@ -18,6 +18,47 @@ pub struct Home {
 }
 
 impl Home {
+    /// Add room to the home
+    pub fn add_room(&mut self, room: Box<Room>) -> xid::Id {
+        let label = room.get_label();
+        let id = room.get_id();
+        self.rooms.insert(id, room);
+        self.label_map.insert(label, id);
+        id
+    }
+
+    /// Get mutable reference to the room by id
+    pub fn get_room_mut(&mut self, id: &xid::Id) -> Option<&mut Box<Room>> {
+        self.rooms.get_mut(id)
+    }
+
+    /// Get mutable reference to the room by label
+    pub fn get_room_by_lable_mut(&mut self, label: &String) -> Option<&mut Box<Room>> {
+        match self.label_map.get(label) {
+            None => None,
+            Some(id) => self.rooms.get_mut(id),
+        }
+    }
+
+    /// Remove room from the home by id
+    pub fn remove_room(&mut self, id: &xid::Id) -> Option<xid::Id> {
+        match self.rooms.remove(id) {
+            None => None,
+            Some(r) => {
+                self.label_map.remove(&r.get_label());
+                Some(*id)
+            }
+        }
+    }
+
+    /// Remove room from the home by label
+    pub fn remove_room_by_label(&mut self, label: &String) -> Option<xid::Id> {
+        match self.label_map.remove(label) {
+            None => None,
+            Some(id) => self.rooms.remove(&id).map(|r| r.get_id()),
+        }
+    }
+
     /// Collect references to devices in home
     pub fn get_devices(&self) -> Vec<DeviceRef> {
         self.rooms.values().flat_map(|r| r.get_devices()).collect()
@@ -196,7 +237,7 @@ mod tests {
         let rlabel = String::from("Room A");
         let r = RoomBuilder::new().set_label(rlabel.clone()).build();
         let rid = r.get_id();
-        let home = HomeBuilder::new()
+        let mut home = HomeBuilder::new()
             .set_name(String::from("My home"))
             .add_room(Box::new(r))
             .build();
@@ -208,5 +249,22 @@ mod tests {
         assert!(home.has_room_with_id(&rid));
         assert!(home.has_room_with_label(&rlabel));
         assert!(mhome.switch_power(PowerState::ON).is_ok());
+        let id = home.add_room(Box::new(
+            RoomBuilder::new()
+                .set_label("added room".to_string())
+                .build(),
+        ));
+        assert!(home.has_room_with_label(&"added room".to_string()));
+        assert!(home.remove_room(&id).is_some());
+        assert!(!home.has_room_with_label(&"added room".to_string()));
+        home.add_room(Box::new(
+            RoomBuilder::new()
+                .set_label("added room 2".to_string())
+                .build(),
+        ));
+        assert!(home.has_room_with_label(&"added room 2".to_string()));
+        assert!(home
+            .remove_room_by_label(&"added room 2".to_string())
+            .is_some());
     }
 }
