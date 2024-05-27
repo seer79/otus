@@ -1,0 +1,9 @@
+[package]
+name = "cmd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+xid = "1.0.3"
+libserver = { version = "0.1.0", path = "../libserver" }
+libclient = { version = "0.1.0", path = "../libclient" }
