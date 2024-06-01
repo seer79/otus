@@ -7,3 +7,4 @@ edition = "2021"
 xid = "1.0.3"
 libserver = { version = "0.1.0", path = "../libserver" }
 libclient = { version = "0.1.0", path = "../libclient" }
+libprotocol = { version = "0.1.0", path = "../libprotocol" }

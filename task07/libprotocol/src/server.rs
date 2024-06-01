@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
-    error::{self, SendError},
-    read_packet, write_packet, Packet,
+    error::{self, ConnectError, SendError},
+    Packet,
 };
 
 pub struct TcpServer {
@@ -25,6 +25,10 @@ impl TcpServer {
     pub fn incoming(
         &self,
     ) -> impl Iterator<Item = Result<TcpConnection, error::ConnectError>> + '_ {
+        println!(
+            "INFO: Starting server on {:?}",
+            self.tcp.local_addr().unwrap()
+        );
         self.tcp.incoming().map(|s| match s {
             Ok(s) => Self::try_handshake(s),
             Err(e) => Err(error::ConnectError::Io(e)),
@@ -32,20 +36,34 @@ impl TcpServer {
     }
 
     fn try_handshake(mut stream: TcpStream) -> Result<TcpConnection, error::ConnectError> {
-        let pack = Packet::Byte(42);
-        match write_packet(&mut stream, pack) {
-            Err(_) => Err(error::ConnectError::BadHandshake(String::from(
-                "Cannot send handshake packet",
-            ))),
-            Ok(_) => match read_packet(&mut stream) {
-                Err(_v) => Err(error::ConnectError::BadHandshake(String::from(
-                    "Cannot receive handshake packet",
-                ))),
-                Ok(Packet::Byte(24)) => Ok(TcpConnection { stream }),
-                _ => Err(error::ConnectError::BadHandshake(String::from(
-                    "Invalid client",
-                ))),
-            },
+        println!(
+            "INFO: server is trying handshake with {:?}",
+            stream.peer_addr().unwrap()
+        );
+        let mut state = 0;
+        loop {
+            match state {
+                0 => match crate::read_packet(&mut stream) {
+                    Ok(Packet::Byte(42)) => state = 1,
+                    Err(v) => {
+                        return Err(ConnectError::BadHandshake(format!("invalid code {:?}", v,)))
+                    }
+                    _ => return Err(ConnectError::BadHandshake(String::from("invalid packet"))),
+                },
+                1 => match crate::write_packet(&mut stream, Packet::Byte(24)) {
+                    Ok(_) => {
+                        state = 3;
+                    }
+                    Err(v) => {
+                        return Err(ConnectError::BadHandshake(format!(
+                            "cannot send response {:?}",
+                            v
+                        )))
+                    }
+                },
+                3 => return Ok(TcpConnection { stream }),
+                _ => return Err(ConnectError::BadHandshake(String::from("invalid state"))),
+            }
         }
     }
 }
