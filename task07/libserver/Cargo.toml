@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+libprotocol = { version = "0.1.0", path = "../libprotocol" }
+rand = "0.8.5"
+xid = "1.0.3"

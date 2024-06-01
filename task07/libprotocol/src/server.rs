@@ -8,10 +8,12 @@ use crate::{
     Packet,
 };
 
+#[derive(Debug)]
 pub struct TcpServer {
     tcp: TcpListener,
 }
 
+#[derive(Debug)]
 pub struct TcpConnection {
     stream: TcpStream,
 }
