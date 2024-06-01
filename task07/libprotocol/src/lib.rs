@@ -1,6 +1,8 @@
 use std::io::{Read, Write};
 
+pub mod client;
 pub mod error;
+pub mod server;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Packet {
@@ -18,6 +20,70 @@ impl Packet {
             Packet::Float32(_) => F32_PREFIX,
             Packet::Str(_) => STR_PREFIX,
         }
+    }
+}
+
+impl From<i32> for Packet {
+    fn from(value: i32) -> Self {
+        Self::Int32(value)
+    }
+}
+
+impl From<u8> for Packet {
+    fn from(value: u8) -> Self {
+        Self::Byte(value)
+    }
+}
+
+impl From<f32> for Packet {
+    fn from(value: f32) -> Self {
+        Self::Float32(value)
+    }
+}
+
+impl TryInto<i32> for Packet {
+    type Error = ();
+    fn try_into(self) -> Result<i32, Self::Error> {
+        match self {
+            Packet::Int32(v) => Ok(v),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryInto<u8> for Packet {
+    type Error = ();
+    fn try_into(self) -> Result<u8, Self::Error> {
+        match self {
+            Packet::Byte(v) => Ok(v),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryInto<f32> for Packet {
+    type Error = ();
+    fn try_into(self) -> Result<f32, Self::Error> {
+        match self {
+            Packet::Float32(v) => Ok(v),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryInto<String> for Packet {
+    type Error = ();
+    fn try_into(self) -> Result<String, Self::Error> {
+        match self {
+            Packet::Str(v) => Ok(v),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<String> for Packet {
+    fn from(value: String) -> Self {
+        Self::Str(value)
     }
 }
 
@@ -119,9 +185,8 @@ pub fn write_packet<Writer: Write>(
             let buff = s.as_bytes();
             let len = u32::to_be_bytes(s.len() as u32);
             writer.write_all(&len)?;
-            writer.write_all(&buff)?;
+            writer.write_all(buff)?;
         }
-        _ => return Err(error::SendError::UnexpectedPacket),
     };
     Ok(())
 }
@@ -133,7 +198,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_read_send() {
+    fn test_marshalling() {
         let mut buff = vec![];
         write_packet(&mut buff, Packet::Byte(100)).unwrap();
         write_packet(&mut buff, Packet::Float32(100.2)).unwrap();

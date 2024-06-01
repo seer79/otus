@@ -29,3 +29,19 @@ pub enum RecvError {
     #[error("invalid format")]
     InvalidFormat,
 }
+
+/// Bind to socket error
+#[derive(Debug, Error)]
+pub enum BindError {
+    #[error("IO error: {0}")]
+    Io(#[from] io::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum CmdError {
+    #[error("CmdError send : {0}")]
+    Send(#[from] SendError),
+
+    #[error("CmdError recv : {0}")]
+    Recv(#[from] RecvError),
+}
